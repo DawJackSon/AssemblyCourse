@@ -1,0 +1,318 @@
+
+				COSC 2406  TEST                    10 Mar, 2016
+
+NO SILICON DEVICES ARE ALLOWED.
+
+
+1.  Do all calculations in this question in base 16.                       [10]
+
+    a) Calculate the 4 hex digit 2C representation of the integer -13596.
+
+
+       16 | 13596
+          -------
+         16 | 849   12
+            -----
+          16 | 53    1
+             ----
+           16 | 3    5
+              ---
+                0    3
+
+       so 13596 <-> 351C
+            1C  <-> CAE3  (subtracting from FFFF)
+            2C  <-> CAE4
+
+         -13596 <-> CAE4 in 2C notation
+
+    b) Perform the following unsigned subtraction.
+
+		    B747h - 6D5Ch
+
+       B747
+      -6D5C
+       ----
+       49EB
+
+    c) Perform the following signed subtraction using 2C addition.
+
+                    75A8h - C74Fh
+
+                       75A8
+                      -C74F
+                       ----
+      1C of subtrahend 38B0
+      2C               38B1
+                       ----
+                       AE59
+
+    d) Indicate whether there is signed and/or unsigned overflow in the
+       above example (justify your answer).
+ 
+       there is unsigned overflow since minuend < subtrahend
+
+       there is signed overflow since 
+         (positive number) - (negative number) gave a negative number
+
+    e) Name the processor flags that indicate signed and unsigned overflow?
+
+       signed overflow <-> OF
+       unsigned overflow <-> CV
+
+
+ 
+2.  a) The 8086 has 8 general purpose registers. Name them.                [10]
+
+       AX, BX, CX, DX, SI, DI, BP, SP
+
+    b) Name the memory segments available to an 8086 AL program and
+       indicate the register that points to each segment.
+
+       stack segment - SS
+       data segment  - DS
+       code segment  - CS
+       extra (data) segment - ES
+
+    c) A variable is located at the physical address 7AD6Dh. In which
+       memory segment would it have offset BF9Dh?
+
+       phy_addr = seg_num * 16 + offset
+  
+       so 
+          7AD6D
+         - BF9D
+          -----
+          6EDD0
+
+          Division by 16 (shift right 1 hex digit) gives 6EDD
+
+       so (SS) = 6EDD
+
+    d) Describe how an assembler assigns addresses to variables and 
+       labels in an AL program.
+
+       LC := 0 /* at start of data segment or code segment */
+       LC := LC + size_of ( data or instruction)
+       address of data or label := LC
+
+    e) Explain why an assembler needs to either make two passes over the 
+       source code, or use backpatching.
+
+       The problem is forward jumps.
+       The target address is unknown when jump instruction is being 
+         translated
+       The simplest solution is to scan the code twice.
+       During the first pass addresses are assigned to data and variables
+       On the second pass the instructions are translated (all jump targets
+         are now known.
+       Another solution is to translate as much as possible, keeping a 
+         list of instructions that need to be backpatched (those containing
+         forward jumps) filling in the jump targets when they become known
+
+3. Consider the following expression.                                      [15]
+
+	 	a*b*c + (x*x + y*y)*(3*a - 5*b - c)
+
+    a) Draw the AST for the above expression.
+
+                             3 +
+                             /   \
+                            /     \
+                           /       \
+                          /         \
+                         /           \
+                        /             \
+                     1 *             3 *
+                      / \             / \
+                   1 *   c 0         /   \ 
+                    / \             /     \
+                   a   b           /       \
+                   1   0          /         \
+                                 /           \
+                                /             \ 
+                             2 +             - 2
+                              / \             / \
+                             /   \           /   \
+                            /     \       2 -     c 0
+                         1 *     1 *       / \
+                          / \     / \     /   \
+                         x   x   y   y   * 1   * 1
+                         1   0   1   0  / \   / \
+                                       3   a 5   b
+                                       1   0 1   0
+
+
+    b) Label the AST with Sethi-Ullman numbers in order to calculate the 
+       minimum number of registers required to evaluate the expression.
+
+        3 registers
+
+    c) Use the Sethi-Ullman algorithm to write optimal X86 AL code to
+       evaluate the above expression.
+
+       starting with the busiest subtree
+
+       mov   ax, 5
+       imul  b
+       mov   bx, ax 
+       mov   ax, 3
+       imul  a
+       sub   ax, bx
+       sub   ax, c
+       mov   bx, ax
+       mov   ax, y
+       imul  ax      ; imul y is ok but more expensive
+       mov   cx, ax
+       mov   ax, x
+       imul  ax
+       add   ax, cx
+       imul  bx
+       mov   bx, ax
+       mov   ax, a
+       imul  b
+       imul  c
+       add   ax, bx
+
+ 
+       
+
+4. The following procedure calculates the number of lattice points within  [35]
+   a circle of radius R (Gauss's circle problem). 
+
+	procedure GaussCP();
+	var
+	  x, y, R, N: integer;
+	begin
+          loop
+            write 'R? ';
+            read R;
+            exit when R < 0;
+            N := 0;
+            x := -R;
+            repeat
+              y := -R;
+              while y <= R do
+                if x*x + y*y <= R*R then
+                  N := N + 1
+                endif;
+                y := y + 1
+              endwhile;
+              x := x + 1
+            until x > R;
+            write cr, lf, 'N = ', N
+            write cr, lf
+          endloop
+        end GausCP;
+                     
+   Translate the above procedure into X86 AL code (a complete module).
+
+	title 	GaussCP
+	.model	small
+	.stack	100h
+
+	.data
+	include	const.inc
+x	dw	?
+y	dw	?
+R	dw	?
+N	dw	?
+Rqu	db	'R? $'
+Nequ	db	cr, lf, 'N = $'
+nl	db	cr, lf, '$'
+
+	.code
+	extrn	getint: proc, putint: proc
+
+GaussCP	proc
+	mov	ax, @data
+	mov	ds, ax
+
+loop01:
+; write 'R? '
+	mov	dx, offset Rqu
+	mov	ah, wrstr
+	int	dosfunc
+
+; read R
+	call	getint
+	mov	R, ax
+
+; exit01 when R < 0
+	cmp	R, 0
+	jl	endloop01
+
+; N := 0
+	mov	N, 0
+
+; x := -R
+	mov	ax, R
+	neg	ax
+	mov	x, ax
+
+repeat02:
+; y := -R
+	mov	ax, R
+	neg	ax
+	mov	y, ax
+
+while03:   ; y <= R
+	mov	ax, y
+	cmp	ax, R
+	jnle	endwhile03
+
+; do03
+; if04 x^2 + y^2 <= R^2
+	mov	ax, y
+	imul	ax
+	mov	bx, ax
+	mov	ax, x
+	imul	ax
+	add	bx, ax
+	mov	ax, R
+	imul	ax
+	cmp	bx, ax
+	jnle	endif04
+; then
+; N := N + 1
+	inc	N
+
+endif04:
+; y := y + 1
+	inc	y
+
+	jmp	while03
+endwhile03:
+
+; x := x + 1
+	inc	x
+
+; until02 x > R
+	mov	ax, x
+	cmp	ax, R
+	jng	repeat02
+; endrepeat02
+
+; write cr, lf, 'N = ', N
+	mov	dx, offset Nequ
+	mov	ah, wrstr
+	int	dosfunc
+	mov	ax, N
+	call	putint
+	
+; write cr, lf
+	mov	dx, offset nl
+	mov	ah, wrstr
+	int	dosfunc
+
+	jmp	loop01
+endloop01:
+
+; return
+	mov	ah, ret2dos
+	int	dosfunc
+GaussCP endp
+	end	GaussCP
+
+
+
+                                                                           [70]
