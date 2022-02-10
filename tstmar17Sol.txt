@@ -1,0 +1,319 @@
+
+				COSC 2406  TEST                    20 Mar, 2017
+
+NO SILICON DEVICES ARE ALLOWED.
+
+
+1.  Do all calculations in this question in base 16.                       [ 8]
+
+    a) Calculate the 4 hex digit 2C representation of the integer -12691.
+
+         16 | 12691
+            +------
+           16 | 793  3
+              +----
+            16 | 49  9
+               +---
+             16 | 3  1
+                +--
+                  0  3
+
+         So 12692 = 3193h
+         1C is      CE6C
+         2C is      CE6D
+
+         Thus -12691 = CE6D
+
+    b) Perform the following unsigned subtraction.
+
+		    B757h - 5B6Eh
+
+         B757
+       - 5B6E
+         ----
+         5BE9
+       
+    c) Perform the following signed subtraction using 2C addition.
+
+                    54B6h - B7EDh
+
+             54B6
+           - B7ED
+             ----
+
+             4812   1C of subtrahend
+             4313   2C
+            
+             54B6
+           + 4313
+             ----
+             9CC9
+  
+    d) Indicate whether there is signed and/or unsigned overflow in the
+       above example (justify your answer).
+
+       unsigned overflow since minuend < subtrahend
+       signed overflow since pos_num - ( neg_num) yielded neg_num
+
+ 
+2.  a) The 8086 has 8 general purpose registers. Name them.                [ 8]
+
+         AX, BX, CX, DX, SI, DI, BP, SP
+
+    b) Name the memory segments available to an 8086 AL program and
+       indicate the register that points to each segment.
+
+         Stack seg         -  SS
+         data seg          -  DS
+         code  seg         -  CS
+         extra (data) seg  -  ES
+
+    c) Describe how an assembler assigns addresses to variables and 
+       labels in an AL program.
+
+       at entry into data seg and code seg, locaation counter LC <- 0
+       LC <- LC + sizeof (data or instruction)
+       var offset or label addr <- LC
+
+    d) Explain the benefit derived from separating the 8086 chip into 
+       an execution unit and a bus interface unit.
+     
+       parallelization ==> execution speedup
+       while EU executing instruction, BIU unit is placing next 
+         instruction(s) into queue
+
+
+3. Translate the following statement into X86 AL code using the LOOP       [ 6]
+   instruction. Assume that all variables have been allocated memory 
+   space. Note that since the values of a and b are unknown, a test
+   for zero trips is required.
+
+	for x := a to b do
+        endfor;
+
+   ; for01 x := a to b
+    	mov	cx, b ; -- set up trip count
+	sub	cx, a
+	inc	cx
+
+	cmp	cx, 0 ; -- check for zero trips
+	jng	endfor01
+
+	mov	ax, a ; -- initialize x
+	mov	x, ax
+   do01:
+
+	inc	x     ; -- update x for next trip
+	loop	do01
+   endfor0f:
+
+4. Consider the following expression.                                      [14]
+
+	 	a*(b + c) + (x*y - b*c)*(5*x - 8*y + 3)
+
+    a) Draw the AST for the above expression.
+
+    b) Label the AST with Sethi-Ullman numbers in order to calculate the 
+       minimum number of registers required to evaluate the expression.
+
+                               3
+                               + AX
+                              / \
+                             /   \
+                            /     \
+                           /       \
+                          /         \
+                         /           \
+                        /             \
+                       /               \
+                    2 /                 \
+                     * AX              3 * AX/BX
+                    / \                 / \
+                   /   \               /   \
+                  /     \             /     \
+                 a       + 1         /       \
+                 1      / \         /         \
+                AX     b   c       /           \
+                       1   0    2 /             \ 2
+                       CX        - AX            + BX
+                                / \             / \
+                               /   \         2 /   \
+                           1  *   1 * AX/CX   - BX  \
+                             / \   / \       / \     3
+                            x  y  b   c     /   \    0
+                            1   0 1   0    /     \
+                           AX     AX      /       \
+                                       1 * AX/BX  * AX 1
+                                        / \      / \
+                                       /   \    /   \
+                                      5    x   8     y
+                                      1    0   1     0
+                                     AX        AX
+
+    c) Use the Sethi-Ullman algorithm to write optimal X86 AL code to
+       evaluate the above expression.
+
+       start with busiest subtree
+
+	 mov	ax, 5
+	 imul	x
+         mov	bx, ax
+	 mov	ax, 8
+	 imul	y
+	 sub	bx, ax
+	 add	bx, 3
+	 mov	ax, b
+	 imul	c
+	 mov	cx, ax
+	 mov	ax, x
+	 imul	y
+	 sub	ax, cx
+	 imul	bx
+	 mov	bx, ax
+	 mov	cx, b
+	 add	cx, c
+	 mov	ax, a
+	 imul	cx
+	 add	ax, bx
+
+ 
+       
+
+5. The procedure GaussCP calculates the number of lattice points within    [34]
+   a circle of radius R (Gauss's circle problem).
+   Translate GaussCP into X86 AL code in a complete module. Use GetInt
+   and PutInt for integer I/O.
+	
+	procedure GaussCP();
+	var
+	  x, y, r, n: integer;
+	begin
+          loop
+            write 'r? ';
+            read r;
+            exit when r < 0;
+            n := 0;
+            y := r;
+            while y >= -r do
+              x := -r;
+              repeat
+                if x*x + y*y - r*r <= 0 then
+                  n := n + 1
+                endif;
+                x := x + 1
+              until x > r;
+              y := y - 1
+            endwhile;
+            write cr, lf, 'n = ', n, cr, lf
+          endloop
+        end GausCP;
+
+	title	GaussCP
+	.model	small
+	.stack	100h
+
+	.data
+	include	const.inc
+x	dw	?
+y	dw	?
+r	dw	?
+n	dw	?
+rqu	db	'r? $'
+neq	db	cr, lf, 'n= $'
+nl	db	cr, lf, '$'                    
+
+	.code
+	extrn	getint: proc, putint: proc
+
+GaussCP proc
+	mov	ax, @data
+	mov	ds, ax
+
+loop01:
+; write 'r? '
+	mov	ah, wrstr
+	mov	dx, offset rqu
+	int	dosfunc
+
+; read r
+	call	getint
+	mov	r, ax
+
+; exit01 when r < 0
+	cmp	r, 0
+	jl	endloop01
+
+; n := 0
+	mov	n, 0
+
+; y := r
+	mov	ax, r
+	mov	y, ax
+
+while02: ; y >= -r 
+	mov	ax, y
+	mov	bx, r
+	neg	bx
+	cmp	ax, bx
+	jnge	endwhile02
+; do02
+; x := -r
+	mov	ax, r
+	neg	ax
+	mov	x, ax
+                                                    2 
+repeat03:                                           -  BX
+; if04 x^2 + y^2 - r^2 <= 0                        / \
+	mov	ax, x                             /   \
+	imul	ax                               /     \
+	mov	bx, ax                          /       \
+	mov	ax, y                          /         \
+	imul	ax                          2 + BX      1 * AX
+	add	bx, ax                       / \         / \
+	mov	ax, r                       /   \       r   r
+	imul	ax                         /     \      1   0
+	sub	bx, ax                  1 /       \
+	cmp	bx, 0                    * AX/BX   * AX
+	jnle	endif04                 / \       / \
+; then04                               x   x     y   y
+; n := n + 1                           1   0     1   0
+	inc	n                      AX        AX
+
+endif04:
+
+; x := x + 1
+	inc	x
+
+; until03 x > r
+	mov	ax, x
+	cmp	ax, r
+	jng	repeat03
+; endrepeat03
+
+; y := y - 1
+	dec	y
+
+	jmp	while02
+endwhile02:
+
+;write cr, lf, 'n= ', r, cr, lf
+	mov	ah, wrwtr
+	mov	dx, offset nequ
+	int	dosfunc
+	mov	ax, n
+	call	putint
+	mov	ah, wrstr
+	mov	dx, offset nl
+	int	dosfunc
+
+	jump	loop01
+endloop01:
+
+; return
+	mov	ah, ret2dos
+	int	dosfunc
+
+GaussCP endp
+	end	GaussCP
+
+                                                                     total [70]
