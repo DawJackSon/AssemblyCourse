@@ -1,0 +1,363 @@
+				COSC 2406  TEST                    14 Mar, 2019
+
+NO SILICON DEVICES ARE ALLOWED.
+
+
+1.  Do all calculations in this question in base 16.                       [ 8]
+
+    a) Calculate the 4 hex digit 2C representation of the integer -12873.
+
+       16 |12873
+           -----
+         16 |804,  9
+             ---
+          16 |50,  4
+              --
+          16  |3,  2
+               -
+               0,  3
+
+           3249
+       1C  CDB6
+       2C  CDB7
+
+       -12873 = (CDB7)_2C
+                     
+      
+    b) Perform the following unsigned subtraction.
+
+		    E7C7h - CBE9h
+
+       E7C7h
+       CBE9h
+       ----
+       1BDE
+
+    c) Perform the following signed subtraction using 2C addition.
+
+                    9CABh - 737Ah
+
+	          	   9CABh
+       	       	         - 737Ah
+                           ----
+       1C of subtrahend    8C85h
+       2C                  8C86h
+       add to minuend  1 | 2931h
+   
+       so 9CABh - 737Ah = 2931h       
+
+    d) Indicate whether there is signed and/or unsigned overflow in the
+       above example; justify your answer.
+
+       in signed representation
+       a neg value - a pos value should be neg, but result is pos;
+       so signed overflow
+
+       in unsigned representation
+       minuend > subtrahend;
+       so no unsigned overflow
+ 
+2.  a) Convert the decimal number -159.15625 into SP IEEE FPS format.      [ 8]
+       Express the answer in hex.
+
+       16 |159
+           ---
+         16 |9, 15
+             -
+             0, 9
+
+       so 159 = 9Fh = 1001 1111b
+
+          .15625
+             x 2
+        0|.31250
+             x 2
+        0|.6250
+            x 2
+        1|.250
+           x 2
+        0|.50
+          x 2
+        1|.00
+
+       so .15625 = .00101b
+
+       159.15625 = 1001 1111.00101
+       normalize
+                 = 1.001 1111 00101 x 2^7
+
+       biased exponent = 127 + 7
+                       = 134
+
+       16 |134
+           ---
+         16 |8, 6
+             -
+             0, 8
+
+       so 134 = 86h
+              = 1000 0110b
+
+       sign bit is 1
+
+       (sign bit)(biased exponent)(fraction)
+
+       1 1000 0110  001 1111 00 101
+       1100 0011 0001 1111 0010 1000 0000 0000
+          C    3    1    F    2    8    0    0
+
+    b) Describe how an assembler assigns addresses to variables and 
+       labels in an AL program.
+
+       at beginning of data/ code segs
+         LC <- 0
+       then
+         LC <- LC + size of data/ instruction
+       addr of variable/ label <- LC
+
+
+3. Consider the following expression.                                      [20]
+
+	 	a*b/(x + y) + (a*x - b*y + 5)*(a*x - b*y)
+
+    a) Draw the AST for the above expression.
+
+                               + 3 AX
+                               / \
+                              /   \
+                             /     \
+                            /       \
+                           /         \
+                          /           \
+                         /             \
+                        /               \
+                       /                 \
+                      /                   \
+                     /                     \
+                   div 2 AX                 * 3 AX/BX
+                   / \                     / \
+                  /   \                   /   \
+                 /     \                 /     \
+                /       \               /       \
+               /         \             /         \
+              * 1 AX      + 1 CX      + 2 AX      - 2 BX
+             / \         / \         / \         / \
+            a   b       x   y       /   \       /   \
+            1   0       1   0      /     \     /     \
+                                  - 2 AX  5  1*AX/BX  * 1 AX
+                                 / \      0  / \     / \
+                                /   \       a   x   b   y
+                              1* AX  * 1 AX 1   0   1   0
+                              / \   / \  CX
+                             a   x b   y
+                             1   0 1   0
+
+    b) Label the AST with Sethi-Ullman numbers in order to calculate the 
+       minimum number of registers required to evaluate the expression.
+
+    c) Use the Sethi-Ullman algorithm to write optimal 8086 AL code to
+       evaluate the above expression.
+
+	mov	ax, a
+	imul	x
+	mov	bx, ax
+	mov	ax, b
+	imul	y
+	sub	bx, ax
+	mov	ax, b
+	imul	y
+	mov	cx, ax
+        mov	ax, a
+	imul	x
+	sub	ax, cx
+	add	ax, 5
+	imul	bx
+	mov	bx, ax
+	mov	cx, x
+	add	cx, y
+	mov	ax, a
+	imul	b
+	cwd
+	idiv	cx
+	add	ax, bx	; 22 instrs
+
+
+4. Translate the following code segment into 8086 AL code, using the       [20]
+   LOOP AL instruction for each FOR statement
+   Assume that
+     i ) all variables have been allocated memory space, and
+     ii) r >= 0.
+
+        s := 0;
+        t := 0;
+	for x := -r to r do
+          for y := 0 to r do
+            p := x*x + y*y - r*r;
+            if p < 0 then
+              s := s + 1
+            elsif p = 0 then
+              t := t + 1
+            end
+          end 
+        end;
+	
+        ; s := 0
+		mov	s, 0
+        ; t := 0
+		mov	t, 0
+	; for01 x := -r to r                     ;     -
+		mov	ax, r                    ;    / \
+		neg	ax                       ;   r   -
+		mov	x, r	; initialize x           |
+		mov	cx, r                    ;       r
+		sub	cx, ax
+		inc	cx	; trip count = r - (-r) + 1
+	do01:
+		push	cx
+        ; for02 y := 0 to r 
+		mov	y, 0	; initialize y
+		mov	cx, r
+		inc	cx	; trip count = r - 0 + 1
+	do02:
+        ; p := x*x + y*y - r*r;
+		mov	ax, x   ;                     - 2 BX
+		imul	ax      ;                    / \
+		mov	bx, ax  ;                   /   \
+		mov	ax, y   ;                  /     \
+		imul	ax      ;              BX +2      *1 AX
+		add 	bx, ax  ;                / \     / \
+		mov	ax, r   ;               /   \   r   r
+		imul	ax      ;        AX/BX *1   1*  1   0
+		sub	bx, ax  ;             / \   / \
+		mov	p, ax   ;            x   x y   y
+        ; if03 p < 0            ;            1   0 1   0
+		cmp	p, 0
+		jnl	elsif03a
+	; then03
+        ; s := s + 1
+		inc	s
+		jmp	endif03
+        elsif03a: ;  p = 0
+		cmp	p, 0	; can be omitted since flags persist
+		jne	endif03
+        ; then03a
+        ; t := t + 1
+		inc	t
+	endif03:
+		inc	y
+		loop	do02
+        ; endfor02
+		pop	cx
+		inc	x
+		loop	do01
+        ; endfor01
+ 
+       
+
+5. Translate the procedure Collatz into 8086 AL code in a complete       [34]
+   module. Use GetInt and PutInt for integer I/O.              
+	
+	procedure Collatz();
+	var
+	  n, fn: integer;
+	begin
+          loop
+            read n;           
+            exit when n <= 0;
+            fn := n;
+            write nl;
+            write fn;
+            while fn > 1 do
+              if fn MOD 2 = 0 then
+                fn := fn DIV 2
+              else
+                fn := 3*fn + 1
+              end;
+              write nl, fn;
+              s := s + 1
+            end;
+            write nl
+          end
+        end Collatz;
+
+	title	collatz.asm
+	.model	small
+	.stack	100h
+
+	.data
+	include	const.inc
+n	dw	?
+fn	dw	?
+nl	db	cr, lf, '$'
+
+	.code
+	extrn	getint: proc, putint: proc
+
+collatz	proc
+	mov	ax, @data
+	mov	ds, ax
+
+loop01:
+; read n
+	call	getint
+	mov	n, ax
+; exit01 when n <= 0
+	cmp	n, 0
+	jle	endloop01
+; fn := n
+	mov	ax, n
+	mov	fn, ax
+; write nl
+	mov	ah, wrstr
+	mov	dx, offset nl
+	int	dosfunc
+; write fn
+	mov	ax, fn
+	call	putint
+while02: ; fn > 1
+	cmp	fn, 1
+	jng	endwhile02
+; do02
+; if03 fn mod 2 = 0
+	test	fn, 1
+	jne	else03	; the best code - but the following works
+comment	%
+	mov	ax, fn
+	mov	bx, 2
+	cwd
+	idiv	bx
+	cmp	bx, 0
+	jne	else03
+	%                     
+; then03
+; fn := fn div 2
+	shr	fn, 1	; otherwise divide by 2 as above
+	jmp	endif03
+else03:
+; fn := 3*fn + 1
+	mov	ax, 3
+	imul	fn
+	inc	ax
+	mov	fn, ax
+endif03:
+; write nl, fn
+	mov	ah, wrstr
+	mov	dx, offset nl
+	int	dosfunc
+	mov	ax, fn
+	call 	putint
+	jmp	while02
+endwhile02:
+; write nl
+	mov	ah, wrstr
+	mov	dx, offset nl
+	int	dosfunc
+	jmp	loop01
+endloop01:
+; return
+	mov	ah, ret2dos
+	int	dosfunc
+collatz	endp
+	end	collatz
+
+                                                                     total [90]
