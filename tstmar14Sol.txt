@@ -1,0 +1,342 @@
+
+				COSC 2406  TEST                    12 Mar, 2014
+
+NO SILICON DEVICES ARE ALLOWED.
+
+
+1.  Do all calculations in this question in base 16.                       [10]
+
+    a) Calculate the 4 hex digit 2C representation of the integer -13457.
+
+       since number is negative, first calculate true representation  of 13457
+       repeated divisions by 16 gives remainders (in reverse order)
+       3 4 9 1
+
+		16 |13457
+                   +-----
+                   16|841  1
+                     +---
+                    16|52  9
+                      +--
+                     16|3  4
+                       +-
+                        0  3
+
+       subtract from FFFF to get
+       1C - CB6E
+       add 1 to get
+       2C - CB6F
+
+    b) Perform the following unsigned subtraction.
+
+		    C3A7h - 7E4Ah
+
+		C3A7
+        	7E4A
+        	----
+        	455D
+
+    c) Perform the following signed subtraction by 2C addition.
+
+                    6DA4h - B93Ch
+
+		6DA4
+               -B93C
+                ----
+                46C3 - 1C of subtrahend
+                   1
+                ----
+                46C4
+               +6DA4
+                ----
+                B468
+
+    d) Indicate whether there is signed and/or unsigned overflow in the
+       above example, and justify your answer.
+
+        unsigned ovf since minuend < subtrahend
+        signed ovf since positive - negative gave a negative result
+
+    e) Which processor flags indicate signed and unsigned overflow?
+
+	signed ovf: OF
+        unisnged ovf: CF
+
+2.  a) The 8086 has 8 general purpose registers. Name them.                [10]
+
+	AX, BX, CX, DX, SI, DI, BP, SP
+
+    b) Name the memory segments available to an 8086 AL program and
+       indicate the register that points to each segment.
+
+	data seg:  DS
+        code seg:  CS
+        stack seg: SS
+        extra seg: ES
+
+    c) A variable is located at the physical address 6AD7Bh. In which
+       memory segment would it have offset 6FDBh?
+
+       since physical_addr = memory_seg x 10h + offset
+
+	6AD7B
+       - 6FDB
+        -----
+        63DA0
+
+       division by 10h yiels 63DA for memory segment giving 63DA:6FDB for the
+       logical address
+
+    d) Describe how an assembler assigns addresses to variables and labels
+       in an AL program.
+
+       LC <- 0 at the beginning of the scan of each segment
+       LC <- LC + sizeof (data or instruction)
+       address of variable of label <- current value of LC
+
+    e) Explain why an assembler needs to make two passes over the source
+       code.
+	
+	to facilitate assembly of instructions containing forward jumps (the
+        address of the label isn't known during the first pass since it hasn't
+        been seen)
+
+
+3. Consider the following expression.                                      [15]
+
+	         x*y/2 - (2*x*x - 5*x*y + 7*y*y)
+
+    a) Draw the AST for the above expression.
+
+				- (3)
+                              /   \
+                             /     \
+                            /       \
+                           /         \
+                          /           \
+                         /             \
+                   (2)  div             + (2)
+                       /  \            /  \
+                      /    \          /    \
+                  (1)*      2        /      \
+                    / \    (1)      /        \
+                   x   y           /          \
+                 (1)  (0)         -(2)         *(1)
+                                 / \          /  \
+                                /   \        /    \
+                               /     \   (1)*      y
+                           (1)*    (1)*    / \    (0)
+                             / \     / \  7(1)y
+                         (1)*   x(0)*   y    (0)
+                           / \     / \ (0)
+                          2   x   5   x
+                         (1) (0) (1) (0)
+
+    b) Label the AST with Sethi-Ullman numbers in order to calculate the 
+       minimum number of registers required to evaluate the expression.
+
+       note the left subtree
+       normally the right operand is in memory
+       here the right operand is a literal and since there is no 
+         divide by an immediate instruction in the ISA, a register is
+         required for the divisor
+       minreg = 3
+
+    c) How many registers will actually be used by an X86 processor? Why?
+       
+       actual = 4 = 3 + 1 (DX used in mul/div)
+
+    d) Use the Sethi-Ullman algorithm to write optimal X86 AL code to
+       evaluate the above expression.
+
+	mov	ax, 2	; evaluate the right subtree first
+	imul	x
+	imul	x
+	mov	bx, ax
+	mov	ax, 5
+	imul	x
+	imul	y
+	sub	bx, ax
+	mov	ax, 7
+	imul	y
+	imul	y
+	add	bx, ax
+	mov	ax, x
+	imul	y
+	mov	si, 2
+	cwd
+	idiv	si
+	sub	ax, bx
+ 
+       
+
+4. The following procedure calculates the maximum value of the function    [35]
+
+		   z(x, y) = x*y*(3*a - x - y)
+
+   in the closed triangular region with vertices (0,0), (3*a, 0), and
+   (0, 3*a). Assume a > 0.
+
+	procedure funcmax();
+	var
+	  x, y, z, at3,
+          xmax, ymax, zmax: integer;
+	begin
+          loop
+            write 'a? ';
+            read a;
+            exit when a < 0;
+            xm := 0;
+            ym := 0;
+	    zm := 0;
+            at3 := 3*a;
+            for y := 0 to at3 do
+              for x := 0 to at3 - y do
+		z := (at3 - x - y)*x*y
+                if z > zmax then
+                  zmax := z;
+                  xmax := x;
+                  ymax := y
+                endif
+              endfor
+            endfor;
+            write cr, lf, 'max = ', zmax, ' at x = ', xmax, ', y = ', ymax;
+            write cr, lf;
+          endloop
+        end funcmax;
+                     
+   Translate the above procedure into X86 AL code (a complete module),
+   using the following register assignment:
+   	zmax: BX
+   	x   : SI
+   	y   : DI
+	z   : AX
+                                                                           [70]
+
+	title	funcmax
+	.model	small
+	.stack	100h
+
+	.data
+	include	const.in
+a	dw	?
+at3	dw	?
+xmax	dw	?
+ymax	dw	?
+
+aque	db	'a? $'
+nl	db	cr, lf, '$'
+maxe	db	cr, lf, 'max = $'
+atxe	db	' at x = $'
+atye	db	', y = $'
+
+	.code
+	extrn	getint: proc, putint: proc
+
+funcmax	proc
+	mov	ax, @data
+	mov	ds, ax
+
+loop01:
+; write 'a? '
+	mov	ah, wrstr
+	mov	dx, offset aque
+	int	dosfunc
+
+; read 	
+	call	getint
+	mov	a, ax
+
+; exit when a < 0
+	cmp	a, 0
+	jl	endloop01
+
+; xmax := 0
+	mov	xmax, 0
+; ymax := 0
+	mov	ymax, 0
+; zmax := 0
+	xor	bx, bx	; or mov    bx, 0
+
+; at3 := 3*a
+	mov	ax, 3
+	imul	a
+	mov	at3, ax
+
+; for02 y := 0 to at3
+	xor	di, di
+	mov	cx, at3
+	inc	cx
+do02:
+
+	push	cx
+; for03 x := 0 to at3-y
+	xor	si, si
+	mov	cx, at3
+	sub	cx, di
+	inc	cx
+do03:
+
+z := (at3 - x - y)*x*y
+	mov	ax, at3
+	sub	ax, si
+	sub	ax, di
+	imul	si
+	imul	di
+
+; if04 z > zmax
+	cmp	ax, bx
+	jng	endif04
+; then04
+
+; zmax := z
+	mov	bx, ax
+; xmax := x
+	mov	xmax, si
+; ymax := y
+	mov	ymax, di
+endif04:
+
+	inc	si
+	loop	do03
+; endfor03
+	pop	cx
+
+	inc	di
+	loop	do02
+; endfor02
+
+; write cr, lf, 'max = ', zmax, ' at x = ', xmax, ', y = ', ymax
+	mov	ah, wrstr
+	mov	dx, offset maxe
+	int	dosfunc
+
+	mov	ax, bx
+	call 	putint
+
+	mov	ah, wrstr
+	mov	dx, offset atxe
+	int	dosfunc
+
+	mov	ax, xmax
+	call	putint
+
+	mov	ah, wrstr
+	mov	dx, offset aty3
+	int	dosfunc
+
+	mov	ax, ymax
+	call	putint
+
+	mov	ah, wrstr
+	mov	dx, offset nl
+	int	dosfunc
+
+	jmp	loop01
+endloop01:
+
+; return
+	mov	ah, ret2dos
+	int	dosfunc
+funcmax endp
+	end	funcmax
